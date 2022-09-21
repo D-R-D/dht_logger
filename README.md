@@ -4,7 +4,7 @@ python[read data] >--[udp]--> c#[logging] >--[web socket]--> client[use!!!!!!!!]
   
 という感じに流したかったから作った上のc#の部分、変更なしの場合の仕様ポートは下の通り  
 udp[port : 60005]  
-tcp[port : 15622]
+websocket[port : 15622]
   
 変更なしの場合のログファイルは  
 /dht_logs/[yyyy]/[MM]/[dd]/[HH].log の形で生成されるよ  
