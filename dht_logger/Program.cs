@@ -9,8 +9,8 @@ class dht_logger
 {
     static SynchronizedCollection<string> logs = new SynchronizedCollection<string>();
     static string[] latest = new string[2];
-    static HttpListener dht_lts;
-
+    static HttpListener? dht_lts;
+    
     static void Main(string[] args)
     {
         //Taskで全ての処理を別スレッドにて行う
@@ -20,7 +20,7 @@ class dht_logger
         });
         Task.Run(() =>
         {
-            logger();
+            //logger();
         });
         Task.Run(() =>
         {
@@ -67,7 +67,7 @@ class dht_logger
 
     static void OnRequested(IAsyncResult ar)
     {
-        HttpListener listener = (HttpListener)ar.AsyncState;
+        HttpListener? listener = (HttpListener?)ar.AsyncState;
 
         //IAsyncResultが接続情報を握ってる？からwebsock()外部でGetContextする
         var hc = listener.EndGetContext(ar);
@@ -141,10 +141,10 @@ class dht_logger
 
     static void ReceiveCallback(IAsyncResult ar)
     {
-        UdpClient udp = (UdpClient)ar.AsyncState;
+        UdpClient? udp = (UdpClient?)ar.AsyncState;
 
-        IPEndPoint remoteEP = null;
-        byte[] buffer = null;
+        IPEndPoint? remoteEP = null;
+        byte[]? buffer = null;
 
         try
         {
@@ -182,10 +182,10 @@ class dht_logger
             //ディレクトリ構造
             // /dhtlogs/[Every Date (yyyy-MM-dd)]/[Every HOUR].log
 
-            string[] dater = DateTime.Now.ToString("yyyy-MM-dd").Split('-');
+            string[] day = DateTime.Now.ToString("yyyy-MM-dd").Split('-');
             string hour = DateTime.Now.ToString("HH");
 
-            string dir = "/dhtlogs/" + dater[0] + "/" + dater[1] + "/" + dater[2] + "/";
+            string dir = "/dhtlogs/" + day[0] + "/" + day[1] + "/" + day[2] + "/";
             string file = hour + ".log";
 
             Console.WriteLine("start");
@@ -237,7 +237,7 @@ class dht_logger
                             }
                         }
                     }
-                    Thread.Sleep(900);
+                    Thread.Sleep(1000);
                 }
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
@@ -257,20 +257,27 @@ class dht_logger
         //ディレクトリ構造
         // /dhtlogs/[Every Date (yyyy-MM-dd)]/[Every HOUR].log
 
-        DateTime date = DateTime.Now;
-        DateTime target_date = DateTime.Now.AddHours(-1 * cmd);
+        int addedtime = -1 * cmd;
+        DateTime now_date = DateTime.Now;
+        DateTime target_date = DateTime.Now.AddHours(addedtime);
+
+        Console.WriteLine("now_date : " + now_date);
+        Console.WriteLine("target_date : " + target_date);
+
         bool target_reach_flag = false;
-        List<string> str = null;
-        List<string> old_data = null;
+        
+        List<string>? target_dht = new();
+        List<string>? old_dht = new();
 
 
-        string dater = date.ToString("yyyy-MM-dd");
-        string hour = date.ToString("HH");
+        string[] day = now_date.ToString("yyyy-MM-dd").Split('-');
+        string hour = now_date.ToString("HH");
 
-        string dir = "/dhtlogs/" + dater + "/";
+        Console.WriteLine("reading time : " + now_date);
+
+        string dir = "/dhtlogs/" + day[0] + "/" + day[1] + "/" + day[2] + "/";
         string file = hour + ".log";
 
-        Console.WriteLine("start");
 
         if (!Directory.Exists(dir))
         {
@@ -289,7 +296,13 @@ class dht_logger
             {
                 try
                 {
-                    str = new(sr.ReadToEnd().Split('\n'));
+			        foreach(string item in sr.ReadToEnd().Split('\n'))
+                    {
+                        if (item != "")
+                        {
+                            target_dht.Add(now_date.ToString("yyyy-MM-dd-HH") + "-" + item);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -297,25 +310,25 @@ class dht_logger
                 }
             }
         }
-        if (str == null)
+        if (target_dht == null)
         {
-            str = new List<string>();
+            target_dht = new List<string>();
         }
-        str.Remove("");
-        str.Reverse();
+        target_dht.Remove("");
 
 
+        DateTime old_date = now_date;
         while (!target_reach_flag)
         {
-            date = date.AddHours(-1);
+            old_date = old_date.AddHours(-1);
 
-            dater = date.ToString("yyyy-MM-dd");
-            hour = date.ToString("HH");
+            Console.WriteLine("reading time : " + old_date);
 
-            dir = "/dhtlogs/" + dater + "/";
+            day = old_date.ToString("yyyy-MM-dd").Split('-');
+            hour = old_date.ToString("HH");
+
+            dir = "/dhtlogs/" + day[0] + "/" + day[1] + "/" + day[2] + "/";
             file = hour + ".log";
-
-            Console.WriteLine("start");
 
             if (!Directory.Exists(dir))
             {
@@ -334,7 +347,13 @@ class dht_logger
                 {
                     try
                     {
-                        old_data = new(sr.ReadToEnd().Split('\n'));
+                        foreach(string item in sr.ReadToEnd().Split('\n')) 
+                        {
+                            if (item != "")
+                            {
+                                old_dht.Add(old_date.ToString("yyyy-MM-dd-HH") + "-" + item);
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -342,26 +361,29 @@ class dht_logger
                     }
                 }
             }
-            if (old_data == null)
+            if (old_dht == null)
             {
-                old_data = new();
+                old_dht = new();
             }
-            old_data.Remove("");
-            old_data.Reverse();
+            old_dht.Remove("");
+            old_dht.Reverse();
 
-            foreach (string content in old_data)
+            foreach (string content in old_dht)
             {
-                str.Add(content.Split(':')[1]);
+                target_dht.Insert(0,content);
 
-                if (DateTime.Parse(content.Split(':')[0]) <= target_date)
+                string[] splited_content = content.Split(':')[0].Split('-');
+                if (DateTime.Parse(splited_content[0] + "/" + splited_content[1] + "/" + splited_content[2] +" "+ splited_content[3] + ":" + splited_content[4] + ":" + splited_content[5]) <= target_date)
                 {
+                    Console.WriteLine(content);
+                    Console.WriteLine("target reached");
                     target_reach_flag = true;
                     break;
                 }
             }
         }
 
-        return str;
+        return target_dht;
     }
     //
     /*log reader*/
